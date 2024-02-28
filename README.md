@@ -23,4 +23,4 @@ If the companion folder does not exist it will be created.
 
 ## Install
 
-You can find Buttons in the list of community plugins!
+You can find "Note Companion Folder" in the list of community plugins!
