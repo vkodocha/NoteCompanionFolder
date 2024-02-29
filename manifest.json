@@ -1,7 +1,7 @@
 {
 	"id": "note-companion-folder",
 	"name": "Note Companion Folder",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"minAppVersion": "1.5.3",
 	"description": "A Obsidian Plugin providing a way to associate a folder to a note",
 	"author": "Chris Verbree",
