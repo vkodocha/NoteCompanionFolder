@@ -4,7 +4,7 @@ Manage a companion folder at the same location as the note with the same name mi
 
 This plugin provides a:
 
-- Adds a Ribbon icon
+- A ribbon icon
 - A command
 - A context action
 - A file action 
