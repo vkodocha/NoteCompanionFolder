@@ -124,13 +124,19 @@ export default class NoteCompanionFolderPlugin extends Plugin {
 		}
 
 		const noteName = noteFile.basename
+		const parentPath = noteFile.parent?.path
+		let noteSubfolder = '';
+		if (parentPath != null && parentPath !== '/' /* Note is directly in vault root */) {
+			noteSubfolder = parentPath + '/';
+		}
 
 		if (this.settings.companionFolderLocation.length > 0) {
 			const l = this.settings.companionFolderLocation
-			return normalizePath(l + (l.endsWith('/') ? '' : '/') + noteName);
+			return normalizePath(l + (l.endsWith('/') ? '' : '/') + noteSubfolder + noteName);
 		}
 
-		return noteFile.path + (noteFile.path.length > 0 ? (noteFile.path.endsWith('/') ? '' : '/') : '') + noteName;
+		
+		return noteSubfolder + noteName;
 	}
 
 	isCompanionFolderExisting(noteFile: TFile): boolean {
