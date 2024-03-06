@@ -3,8 +3,8 @@
 	"name": "Note Companion Folder",
 	"version": "0.0.3",
 	"minAppVersion": "1.5.3",
-	"description": "A Obsidian Plugin providing a way to associate a folder to a note",
+	"description": "Manage a separate folder of attachments for each note.",
 	"author": "Chris Verbree",
 	"authorUrl": "https://vmac.ch",
-	"isDesktopOnly": true
+	"isDesktopOnly": false
 }

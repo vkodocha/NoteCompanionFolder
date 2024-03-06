@@ -23,7 +23,7 @@ export class NoteCompanionFolderPluginSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Base Path for companion folders')
+			.setName('Base path for companion folders')
 			.setDesc('Default is empty which means the companion folder is directly next to the note file. Add a path from the vault root to the folder in which the companion folders are. Path must not start with \'/\' but end with one.')
 			.addText(text => text
 				.setPlaceholder('Path to folder')

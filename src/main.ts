@@ -52,7 +52,7 @@ export default class NoteCompanionFolderPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'companion-plugin-reveal',
+			id: 'reveal-folder',
 			name: LABEL,
 			editorCallback: (editor) => {
 				let file = this.app.workspace.getActiveFile();
@@ -67,12 +67,12 @@ export default class NoteCompanionFolderPlugin extends Plugin {
 		this.registerMarkdownCodeBlockProcessor("companion-folder", (source, el, ctx) => {
 			const noteFile = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
 			if (!noteFile) {
-				el.createEl('div', { text: `File Ending is not .md` });
+				el.createEl('div', { text: `File ending is not .md` });
 				return;
 			}
 
 			if (!(noteFile instanceof TFile)) {
-				el.createEl('div', { text: `Note File Type is not TFile.` });
+				el.createEl('div', { text: `Note file type is not TFile.` });
 				return;
 			}
 
@@ -88,11 +88,11 @@ export default class NoteCompanionFolderPlugin extends Plugin {
 			}
 
 			if (cf.children.length === 0) {
-				el.createEl('div', { text: `Companion Folder (${cf.path}) is empty.` });
+				el.createEl('div', { text: `Companion folder (${cf.path}) is empty.` });
 				return;
 			}
 
-			const d = el.createEl('div', { text: `Companion Folder's (${cf.path}) content is:` });
+			const d = el.createEl('div', { text: `Companion folder's (${cf.path}) content is:` });
 			const l = el.createEl('ul')
 
 			cf.children.forEach(file => {
@@ -175,8 +175,7 @@ export default class NoteCompanionFolderPlugin extends Plugin {
 		}
 
 		const pathToCompanionFolder = file.vault.getAbstractFileByPath(pathToCompanionFolderPath);
-		console.log(`Companion Folder for ${file.name} is ${pathToCompanionFolder}`);
-
+		
 		if (pathToCompanionFolder === undefined || pathToCompanionFolder === null) {
 			await file.vault.createFolder(pathToCompanionFolderPath);
 		}
