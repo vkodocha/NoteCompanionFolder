@@ -1,7 +1,7 @@
 {
 	"id": "note-companion-folder",
 	"name": "Note Companion Folder",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"minAppVersion": "1.5.3",
 	"description": "Manage a separate folder of attachments for each note.",
 	"author": "Chris Verbree",
