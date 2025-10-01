@@ -45,3 +45,36 @@ If the companion folder for a given one does not exist, it will be created upon 
 ## Install
 
 You can find the "Note Companion Folder" in the list of community plugins!
+
+## Development
+
+### Building
+
+- `npm run dev` - Start development mode with file watching
+- `npm run build` - Build production version with type checking
+
+### Testing
+
+This plugin includes a comprehensive unit test suite using Jest.
+
+**Run tests:**
+```bash
+npm test              # Run all tests
+npm run test:watch    # Run tests in watch mode
+npm run test:coverage # Run tests with coverage report
+```
+
+**Test structure:**
+- `tests/` - Test files and helpers
+- `tests/mocks/` - Mock implementations of Obsidian API
+- `tests/test-helpers.ts` - Utility functions for creating test fixtures
+- `tests/path-resolution.test.ts` - Tests for companion folder path resolution logic
+- `tests/file-operations.test.ts` - Tests for file drop handling and file naming logic
+- `tests/settings.test.ts` - Tests for plugin settings and configuration
+
+The test suite covers:
+- Path resolution for companion folders (sibling and base path modes)
+- Folder existence checks
+- File name conflict resolution
+- Drag and drop handling setup
+- Plugin settings management and persistence
