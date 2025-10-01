@@ -3,10 +3,12 @@ import NoteCompanionFolderPlugin from "./main";
 
 export interface NoteCompanionFolderPluginSettings {
 	companionFolderLocation: string;
+	handleFileDrop: boolean;
 }
 
 export const DEFAULT_SETTINGS: NoteCompanionFolderPluginSettings = {
-	companionFolderLocation: ''
+	companionFolderLocation: '',
+	handleFileDrop: true
 }
 
 export class NoteCompanionFolderPluginSettingTab extends PluginSettingTab {
@@ -30,6 +32,16 @@ export class NoteCompanionFolderPluginSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.companionFolderLocation)
                 .onChange(async (value) => {
 					this.plugin.settings.companionFolderLocation = value;
+					await this.plugin.saveSettings();
+				}));
+		
+		new Setting(containerEl)
+			.setName('Move droped files to the companion folder')
+			.setDesc('If activated (default) files dragged into the note will automatically placed in the note companion folder instead of the regular app behaviour.')
+			.addToggle(text => text
+				.setValue(this.plugin.settings.handleFileDrop)
+				.onChange(async (value) => {
+					this.plugin.settings.handleFileDrop = value;
 					await this.plugin.saveSettings();
 				}));
 	}

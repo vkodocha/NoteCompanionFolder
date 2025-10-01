@@ -1,5 +1,6 @@
-import { App, Notice, Plugin, TAbstractFile, TFile, TFolder, addIcon, normalizePath } from 'obsidian';
+import { App, MarkdownView, Notice, Plugin, TAbstractFile, TFile, TFolder, Vault, WorkspaceLeaf, addIcon, normalizePath } from 'obsidian';
 import { DEFAULT_SETTINGS, NoteCompanionFolderPluginSettingTab, NoteCompanionFolderPluginSettings } from './settings';
+import { FileConflictModal } from './FileConflictModal';
 
 
 const LABEL = 'Reveal companion folder';
@@ -11,6 +12,8 @@ export default class NoteCompanionFolderPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		this.installDropHandlerFromAllLeafs();
 
 		addIcon(ICON_ID, ICON_SVG);
 
@@ -39,6 +42,13 @@ export default class NoteCompanionFolderPlugin extends Plugin {
 						this.openCompanionFolder(view.file);
 					});
 				});
+			})
+		);
+
+		this.registerEvent(
+			this.app.workspace.on("file-open", (file) => {
+				const editorEl = this.getActiveEditorElement();
+				this.setupDropHandling(editorEl);
 			})
 		);
 
@@ -107,7 +117,7 @@ export default class NoteCompanionFolderPlugin extends Plugin {
 	}
 
 	onunload() {
-
+		// we use this.registerDomEvent and so don't need to remove the drop handler manually
 	}
 
 	async loadSettings() {
@@ -116,6 +126,15 @@ export default class NoteCompanionFolderPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+
+		// Add drop handler when feature was activated
+		// but we do not remove them in the other case
+		// this is handled in the handleDrop callback 
+		// method.
+		if (this.settings.handleFileDrop) {
+			this.installDropHandlerFromAllLeafs();
+		}
+		
 	}
 
 	getPathToCompanionFolder(noteFile: TFile): string | null {
@@ -189,4 +208,189 @@ export default class NoteCompanionFolderPlugin extends Plugin {
 		type MyApp = App & { showInFolder(path: string): void }
 		(this.app as MyApp).showInFolder(pathToCompanionFolderPath);
 	}
+
+	// Drag and drop handling
+
+	private dropListeners = new WeakSet<HTMLElement>();
+
+	private installDropHandlerFromAllLeafs() {
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			if (leaf.view instanceof MarkdownView) {
+				console.debug('install drop  handler (if needed) for', leaf.view.containerEl);
+
+				const editorEl = leaf.view.contentEl;
+				this.setupDropHandling(editorEl);
+			}
+		});
+	}
+
+	setupDropHandling(editorEl: HTMLElement | null) {
+		if (!editorEl) {
+			return;
+		}
+
+		if (!this.settings.handleFileDrop) {
+			console.debug(`Do not setup drop handling for companion folder`);
+
+			return;
+		}
+
+		if (!this.dropListeners.has(editorEl)) {
+			console.debug('registerEvent in file-open register drop for ', editorEl);
+			this.dropListeners.add(editorEl);
+			this.registerDomEvent(editorEl, "drop", this.handleDrop, true);
+		} else {
+			console.debug('event is already registered ', editorEl);
+		}
+	}
+
+	private getActiveEditorElement(): HTMLElement | null {
+		const activeLeaf = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!activeLeaf) return null;
+
+		return activeLeaf.containerEl;
+	}
+
+	private handleDrop = async (event: DragEvent) => {
+		if (!event.dataTransfer) return;
+
+		// We need to check this as we can't remove the handler added with this.registerDomEvent.
+		if (!this.settings.handleFileDrop) {
+			console.debug(`Do not setup drop handling for companion folder`);
+
+			return;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+
+		const activeLeaf = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!activeLeaf) return null;
+
+		const noteFile = activeLeaf.file;
+		if (!noteFile) return null;
+
+		const pathToCompanionFolderPath = this.getPathToCompanionFolder(noteFile);
+		if (!pathToCompanionFolderPath) {
+			new Notice('Unable to find companion folder.');
+			console.error('Could not getPathToCompanionFolder for note at ' + noteFile);
+
+			return null;
+		}
+
+		const pathToCompanionFolder = noteFile.vault.getAbstractFileByPath(pathToCompanionFolderPath);
+		if (pathToCompanionFolder === undefined || pathToCompanionFolder === null) {
+			await noteFile.vault.createFolder(pathToCompanionFolderPath);
+		}
+
+		const existingCompanionFolder = noteFile.vault.getFolderByPath(pathToCompanionFolderPath);
+		if (!existingCompanionFolder) {
+			new Notice('Unable to find companion folder.');
+			console.error('Could not getFolderByPath for note companion folder at ' + pathToCompanionFolderPath);
+
+			return null;
+		}
+
+		const files = Array.from(event.dataTransfer.files);
+		const embedLinks = [];
+		for (const file of files) {
+			// do not use `<file>.vault.getFolderByPath` here as it does not work for a file which does not yet exist in the vault.
+			const targetFilePath = `${existingCompanionFolder.path}/${file.name}`;
+
+			const movedFilePath = await this.processDroppedFile(file, targetFilePath);
+			if (!movedFilePath) continue;
+
+			embedLinks.push(movedFilePath);
+		}
+
+		// Insert at current cursor position
+		this.handleFileEmbeds(activeLeaf, embedLinks, event.shiftKey);
+	};
+	
+	async processDroppedFile(file: File, targetFile: string): Promise<string | null> {
+		console.debug(`in processDroppedFile for ${file.name} move it to ${targetFile}`);
+
+		const arrayBuffer = await file.arrayBuffer();
+		
+		let replaceFile = false;
+		const tf = this.app.vault.getAbstractFileByPath(targetFile);
+		if (tf !== undefined && tf !== null) {
+			// A file with the same name exist already at the destination
+			const decision = await new Promise((resolve) => {
+				new FileConflictModal(this.app, tf.name, resolve).open();
+			});
+
+			if (decision === "replace") {
+				replaceFile = true;
+			} else if (decision === "rename") {
+				try {
+					targetFile = await this.getAvailableFileName(tf as TFile, this.app.vault);
+				} catch (err) {
+					new Notice("Unable to find a unique file name.");
+
+					return null; // behaves like cancel in this case
+				  }
+			} else {
+				return null;
+			}
+		}
+		
+		await this.moveFile(targetFile, arrayBuffer, replaceFile);
+
+		return targetFile;
+	}
+
+	private async moveFile(targetFile: string, arrayBuffer: ArrayBuffer, override: boolean = false) {
+		try {
+			if (override) {
+				const tf = this.app.vault.getAbstractFileByPath(targetFile);
+				if (!tf) return null; // we checked earlier if the file exists so this operation is not expected to return null
+				await this.app.vault.modifyBinary(tf as TFile, arrayBuffer);
+			} else {
+				await this.app.vault.createBinary(targetFile, arrayBuffer);
+			}
+			
+			new Notice(`Moved dropped file to: ${targetFile}`);
+		} catch (e) {
+			console.error("Error saving dropped file:", e);
+		}
+	}
+
+	private handleFileEmbeds(view: MarkdownView, filesToEmbed: string[], embedAsLinkOnly: boolean) {
+		const editor = view.editor;
+		if (!editor) return;
+
+		editor.replaceRange(filesToEmbed.map(f => embedAsLinkOnly ? `[[${f}]]` : `![[${f}]]`).join("\n"), editor.getCursor());
+	}
+
+	/**
+	* Finds the first available filename by appending (1), (2), ... up to maxAttempts.
+	*
+	* @param originalFile - The original TFile to base the name on
+	* @param vault - The vault to check for file existence
+	* @param maxAttempts - Optional maximum attempts to try (default: 50)
+	* @returns A new file path that does not exist yet
+	* @throws If no available name is found within maxAttempts
+	*/
+	private async getAvailableFileName(
+		originalFile: TFile,
+		vault: Vault,
+		maxAttempts: number = 50
+	): Promise<string> {
+		const folderPath = originalFile.parent?.path ?? "";
+		const baseName = originalFile.basename;
+		const extension = originalFile.extension;
+
+		for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+			const name = `${baseName} (${attempt}).${extension}`;
+			const newPath = folderPath ? `${folderPath}/${name}` : name;
+
+			if (!vault.getAbstractFileByPath(newPath)) {
+				return newPath;
+			}
+		}
+
+		throw new Error(`Could not find available file name after ${maxAttempts} attempts`);
+	}
+
 }
